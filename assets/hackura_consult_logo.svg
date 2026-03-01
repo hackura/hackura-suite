@@ -1,0 +1,11 @@
+<svg width="400" height="100" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#003366;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ccff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M20 10 L60 30 L60 60 C60 85 20 100 20 100 C20 100 -20 85 -20 60 L-20 30 Z" fill="url(#grad2)" transform="translate(40,0) scale(0.6)" />
+  <text x="80" y="55" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="bold" fill="#003366">HACKURA</text>
+  <text x="80" y="85" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="normal" fill="#00ccff">CONSULT</text>
+</svg>
