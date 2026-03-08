@@ -65,17 +65,27 @@ class ThreatMapWidget(QWidget):
         })
 
     def update_animation(self):
+        # Defensive check for widget validity
+        if not hasattr(self, 'threats') or self.threats is None:
+            return
+
         # Update threats (pulses)
         for t in self.threats[:]:
-            t["age"] += 0.03
-            if t["age"] > 1.0:
-                self.threats.remove(t)
+            try:
+                t["age"] += 0.03
+                if t["age"] > 1.0:
+                    self.threats.remove(t)
+            except (KeyError, ValueError, TypeError):
+                if t in self.threats: self.threats.remove(t)
                 
         # Update attacks (arcs)
         for a in self.attacks[:]:
-            a["age"] += 0.02
-            if a["age"] > 1.2: # Allow lingering
-                self.attacks.remove(a)
+            try:
+                a["age"] += 0.02
+                if a["age"] > 1.2: # Allow lingering
+                    self.attacks.remove(a)
+            except (KeyError, ValueError, TypeError):
+                if a in self.attacks: self.attacks.remove(a)
                 
         self.update()
 

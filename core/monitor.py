@@ -57,9 +57,14 @@ class ThreatIntelConnector:
 
             severities = ["Info", "Medium", "High", "Critical"]
             sev = random.choices(severities, weights=[40, 30, 20, 10])[0]
+            # Generate realistic IPs for GH and international targets
+            src_ip = f"{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}"
+            dst_ip = f"10.{random.randint(89,95)}.{random.randint(0,255)}.{random.randint(0,255)}"
+            
             threats.append({
                 "src_lat": src_lat, "src_lon": src_lon, 
                 "dst_lat": dst_lat, "dst_lon": dst_lon,
+                "src_ip": src_ip, "dst_ip": dst_ip,
                 "severity": sev, "is_live": is_live
             })
         return threats
@@ -99,7 +104,7 @@ class MonitoringWorker(QThread):
                     source_label = "LIVE INTEL" if t.get("is_live") else "AI SIM"
                     self.event_detected.emit({
                         "type": f"Global Threat ({source_label})",
-                        "details": f"[{provider}] {t['severity']} threat: {t['src_lat']:.2f},{t['src_lon']:.2f} -> {t['dst_lat']:.2f},{t['dst_lon']:.2f}",
+                        "details": f"[{provider}] {t['severity']} : {t['src_ip']} -> {t['dst_ip']} (Targeting Internal Hub)",
                         "severity": t['severity']
                     })
             

@@ -4,18 +4,40 @@ from PySide6.QtWidgets import (
     QPlainTextEdit, QMessageBox
 )
 
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import Qt, QThread, Signal
 from core.web_fuzzer import WebFuzzer
+from wrappers.web_tools import GobusterWrapper, DirsearchWrapper
 from core.db import db_manager
 import json
 
 class FuzzWorker(QThread):
-    def __init__(self, url, wordlist):
+    progress = Signal(str)
+    result_found = Signal(str, int)
+    finished = Signal()
+
+    def __init__(self, url, tool_type="Built-in"):
         super().__init__()
-        self.fuzzer = WebFuzzer(url, wordlist)
+        self.url = url
+        self.tool_type = tool_type
 
     def run(self):
-        self.fuzzer.run()
+        self.progress.emit(f"Starting {self.tool_type} assessment...")
+        if self.tool_type == "Built-in":
+            words = ["admin", "login", "config", "api", "v1", "backup", "wp-admin", "sh", "env", ".git"]
+            self.fuzzer = WebFuzzer(self.url, words)
+            self.fuzzer.progress.connect(self.progress.emit)
+            self.fuzzer.result_found.connect(self.result_found.emit)
+            self.fuzzer.finished.connect(self.finished.emit)
+            self.fuzzer.run()
+        else:
+            if self.tool_type == "Gobuster":
+                tool = GobusterWrapper()
+            else:
+                tool = DirsearchWrapper()
+            
+            res = tool.scan(self.url)
+            self.progress.emit(res.get("raw", "No output"))
+            self.finished.emit()
 
 class WebView(QWidget):
     def __init__(self):
@@ -36,6 +58,11 @@ class WebView(QWidget):
         self.project_combo.setStyleSheet("background-color: #2b2b2b; border: 1px solid #3d3d3d;")
         self.refresh_projects()
 
+        self.tool_combo = QComboBox()
+        self.tool_combo.addItems(["Built-in", "Gobuster", "Dirsearch"])
+        self.tool_combo.setFixedHeight(35)
+        self.tool_combo.setStyleSheet("background-color: #2b2b2b; border: 1px solid #3d3d3d;")
+
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Target URL (e.g. https://example.com)")
         self.url_input.setFixedHeight(35)
@@ -45,10 +72,16 @@ class WebView(QWidget):
         self.fuzz_btn.setFixedHeight(35)
         self.fuzz_btn.setStyleSheet("background-color: #00ccff; color: black; font-weight: bold; padding: 0 20px;")
         self.fuzz_btn.clicked.connect(self.start_fuzz)
+
+        self.clear_btn = QPushButton("CLEAR")
+        self.clear_btn.setFixedHeight(35)
+        self.clear_btn.clicked.connect(self.clear_all)
         
         input_layout.addWidget(self.project_combo)
+        input_layout.addWidget(self.tool_combo)
         input_layout.addWidget(self.url_input)
         input_layout.addWidget(self.fuzz_btn)
+        input_layout.addWidget(self.clear_btn)
         self.layout.addLayout(input_layout)
 
         # Progress
@@ -109,24 +142,10 @@ class WebView(QWidget):
         self.progress_bar.setRange(0, len(words))
         self.progress_bar.setValue(0)
 
-        self.worker = FuzzWorker(url, words)
-        
-        # Initialize Scan in DB
-        conn = db_manager.get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO scans (project_id, type, target, status) VALUES (?, ?, ?, ?)",
-            (self.current_project_id, "Web Fuzzing", url, "Running")
-        )
-        self.current_scan_id = cursor.lastrowid
-        conn.commit()
-        
-        db_manager.log_action("Web Fuzzing Started", f"Target: {url} | Scan ID: {self.current_scan_id}")
-
-        # Signal connections
-        self.worker.fuzzer.progress.connect(self.update_log)
-        self.worker.fuzzer.result_found.connect(self.add_result)
-        self.worker.fuzzer.finished.connect(self.on_finished)
+        self.worker = FuzzWorker(url, self.tool_combo.currentText())
+        self.worker.progress.connect(self.update_log)
+        self.worker.result_found.connect(self.add_result)
+        self.worker.finished.connect(self.on_finished)
         self.worker.start()
 
     def update_log(self, msg):
@@ -154,12 +173,8 @@ class WebView(QWidget):
             )
             conn.commit()
 
-    def on_finished(self):
-        self.fuzz_btn.setEnabled(True)
+    def clear_all(self):
+        self.table.setRowCount(0)
+        self.log_area.clear()
+        self.progress_label.setText("Ready")
         self.progress_bar.setVisible(False)
-        self.progress_label.setText("Fuzzing complete.")
-        
-        # Update Scan Status
-        conn = db_manager.get_connection()
-        conn.execute("UPDATE scans SET status = ? WHERE id = ?", ("Completed", self.current_scan_id))
-        conn.commit()

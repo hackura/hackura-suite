@@ -71,11 +71,16 @@ class NetworkView(QWidget):
         self.scan_btn.setFixedHeight(35)
         self.scan_btn.setStyleSheet("background-color: #00ccff; color: black; font-weight: bold; padding: 0 20px;")
         self.scan_btn.clicked.connect(self.start_scan)
+
+        self.clear_btn = QPushButton("CLEAR")
+        self.clear_btn.setFixedHeight(35)
+        self.clear_btn.clicked.connect(lambda: self.log_area.clear())
         
         input_layout.addWidget(self.project_combo)
         input_layout.addWidget(self.tool_combo)
         input_layout.addWidget(self.target_input)
         input_layout.addWidget(self.scan_btn)
+        input_layout.addWidget(self.clear_btn)
         self.layout.addLayout(input_layout)
 
         # Progress

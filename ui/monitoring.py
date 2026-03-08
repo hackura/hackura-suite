@@ -59,9 +59,7 @@ class MonitoringView(QWidget):
         self.worker = MonitoringWorker()
         self.worker.metrics_updated.connect(self.update_metrics)
         self.worker.event_detected.connect(self.add_event)
-        self.worker.global_threat.connect(lambda data: self.threat_map.add_threat(
-            data["src_lat"], data["src_lon"], data["dst_lat"], data["dst_lon"], data["severity"]
-        ))
+        self.worker.global_threat.connect(self.handle_global_threat)
         self.worker.start()
 
     def create_metric_widget(self, label, parent_layout):
@@ -148,6 +146,14 @@ class MonitoringView(QWidget):
     def add_event(self, event):
         ts = datetime.now().strftime("%H:%M:%S")
         self.event_log.appendPlainText(f"[{ts}] {event['type']}: {event['details']}")
+
+    def handle_global_threat(self, data):
+        """Thread-safe handler for threat emissions."""
+        self.threat_map.add_threat(
+            data["src_lat"], data["src_lon"], 
+            data["dst_lat"], data["dst_lon"], 
+            data["severity"]
+        )
 
     def closeEvent(self, event):
         self.worker.stop()
