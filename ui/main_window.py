@@ -37,142 +37,108 @@ from ui.obfuscation_view import ObfuscationView
 from ui.persistence_view import PersistenceView
 from ui.log_analyzer_view import LogAnalyzerView
 from ui.marketplace_view import PluginMarketplaceView
+from ui.graph_explorer import GraphExplorerView
+from ui.osint_view import OSINTView
+from ui.license_view import LicenseView
+from core.security import license_manager
 from PySide6.QtGui import QIcon, QColor
 import os
 
 class NavButton(QPushButton):
-    def __init__(self, text, parent=None):
+    def __init__(self, text, is_category=False, parent=None):
         super().__init__(text, parent)
         self.setCheckable(True)
-        self.setFixedHeight(40)
+        self.setFixedHeight(35 if is_category else 30)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                color: #e0e0e0;
-                text-align: left;
-                padding-left: 15px;
-                font-size: 11px;
-                border-left: 3px solid transparent;
-                font-weight: normal;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
-            }
-            QPushButton:checked {
-                color: #00ccff;
-                font-weight: bold;
-                border-left: 3px solid #00ccff;
-                background-color: #1a1a1a;
-            }
-        """)
+        self.is_category = is_category
+        
+        if is_category:
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    border: none;
+                    color: #aaa;
+                    padding: 0 15px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    letter-spacing: 1px;
+                }
+                QPushButton:hover {
+                    color: #fff;
+                }
+                QPushButton:checked {
+                    color: #00ccff;
+                    border-bottom: 2px solid #00ccff;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #252525;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    color: #e0e0e0;
+                    padding: 0 10px;
+                    font-size: 10px;
+                }
+                QPushButton:hover {
+                    background-color: #3d3d3d;
+                }
+                QPushButton:checked {
+                    background-color: #1a1a1a;
+                    color: #00ccff;
+                    border: 1px solid #00ccff;
+                }
+            """)
 
-class SideBar(QFrame):
+class TopBar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(200)
-        self.setObjectName("SideBar")
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        
-        # Logo/Brand Area
-        self.brand_frame = QFrame()
-        self.brand_frame.setFixedHeight(60)
-        brand_layout = QHBoxLayout(self.brand_frame)
-        self.brand_label = QLabel("HACKURA SUITE")
-        self.brand_label.setObjectName("LogoHeader")
-        self.brand_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #00ccff;")
-        brand_layout.addWidget(self.brand_label)
-        self.main_layout.addWidget(self.brand_frame)
+        self.setFixedHeight(100) # Total height for both tiers
+        self.setObjectName("TopBar")
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
 
-        # Scrollable Nav Area
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.NoFrame)
-        self.scroll.setStyleSheet("background-color: transparent;")
-        
-        self.nav_container = QWidget()
-        self.nav_layout = QVBoxLayout(self.nav_container)
-        self.nav_layout.setContentsMargins(0, 10, 0, 10)
-        self.nav_layout.setSpacing(2)
-        
-        self.buttons = {}
-        
-        self.add_category("CORE")
-        self.add_nav("DASHBOARD", "dashboard")
-        self.add_nav("CLIENTS", "clients")
-        self.add_nav("PROJECTS", "projects")
+        # Tier 1: Main Categories
+        self.tier1_frame = QFrame()
+        self.tier1_frame.setFixedHeight(50)
+        self.tier1_frame.setStyleSheet("background-color: #1a1a1a; border-bottom: 1px solid #333;")
+        tier1_layout = QHBoxLayout(self.tier1_frame)
+        tier1_layout.setContentsMargins(15, 0, 15, 0)
+        tier1_layout.setSpacing(10)
 
-        self.nav_layout.addSpacing(15)
-        self.add_category("MANAGEMENT")
-        self.add_nav("ENGAGEMENTS", "engagements")
-        self.add_nav("ASSET TRACKER", "assets")
-        self.add_nav("REPORT GEN", "report_customizer")
-
-        self.nav_layout.addSpacing(15)
-        self.add_category("AUTOMATION")
-        self.add_nav("ORCHESTRATOR", "orchestrator")
-        self.add_nav("VULN REPLAY", "vuln_replay")
+        self.brand_label = QLabel("HACKURA")
+        self.brand_label.setStyleSheet("font-weight: bold; font-size: 18px; color: #00ccff; margin-right: 20px;")
+        tier1_layout.addWidget(self.brand_label)
         
-        self.nav_layout.addSpacing(15)
-        self.add_category("EVASION & PERSISTENCE")
-        self.add_nav("OBFUSCATOR", "obfuscation")
-        self.add_nav("C2 PERSISTENCE", "persistence")
+        self.license_lbl = QLabel("TRIAL")
+        self.license_lbl.setStyleSheet("font-size: 9px; background-color: #ffaa00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+        tier1_layout.addWidget(self.license_lbl)
 
-        self.nav_layout.addSpacing(15)
-        self.add_category("SYSTEM LABS")
-        self.add_nav("SANDBOX TESTER", "sandbox")
-        self.add_nav("LOG ANALYZER", "log_analyzer")
-        self.add_nav("MARKETPLACE", "marketplace")
+        self.cat_buttons = {}
+        self.categories = [
+            "CORE", "INTELLIGENCE", "OFFENSIVE", "RED ADVANCED", "DEFENSIVE", "SYSTEM"
+        ]
         
-        self.nav_layout.addSpacing(15)
-        self.add_category("OFFENSIVE")
-        self.add_nav("NETWORK", "network")
-        self.add_nav("WEB SCANS", "web")
-        self.add_nav("CLOUD SCAN", "cloud")
-        self.add_nav("RED TEAM", "red_team")
-        self.add_nav("API FUZZER", "api_fuzzer")
-        self.add_nav("CREDENTIALS", "credentials")
-        self.add_nav("WIRELESS/BT", "wireless")
-        self.add_nav("AI EXPLOIT", "ai_exploit")
+        for cat in self.categories:
+            btn = NavButton(cat, is_category=True)
+            tier1_layout.addWidget(btn)
+            self.cat_buttons[cat] = btn
         
-        self.nav_layout.addSpacing(15)
-        self.add_category("RED - ADVANCED")
-        self.add_nav("EDR EVASION", "evasion")
-        self.add_nav("MALWARE GEN", "malware")
-        self.add_nav("CONTAINER/K8S", "k8s")
-        self.add_nav("SECRETS SCAN", "secrets")
+        tier1_layout.addStretch()
+        self.layout.addWidget(self.tier1_frame)
 
-        self.nav_layout.addSpacing(15)
-        self.add_category("DEFENSIVE")
-        self.add_nav("MONITORING", "monitoring")
-        self.add_nav("BLUE DASH", "blue_dashboard")
-        self.add_nav("BLUE TOOLS", "blue_team")
-        self.add_nav("AUDIT LOGS", "audit")
-        self.add_nav("COMPLIANCE", "compliance")
-        
-        self.nav_layout.addSpacing(15)
-        self.add_category("SYSTEM")
-        self.add_nav("CONSOLE", "console")
-        self.add_nav("REPORTING", "reporting")
-        self.add_nav("SETTINGS", "settings")
+        # Tier 2: Specific Tools (Sub-bar)
+        self.tier2_frame = QFrame()
+        self.tier2_frame.setFixedHeight(50)
+        self.tier2_frame.setStyleSheet("background-color: #121212; border-bottom: 1px solid #333;")
+        self.tier2_layout = QHBoxLayout(self.tier2_frame)
+        self.tier2_layout.setContentsMargins(15, 0, 15, 0)
+        self.tier2_layout.setSpacing(8)
+        self.layout.addWidget(self.tier2_frame)
 
-        self.nav_layout.addStretch()
-        
-        self.scroll.setWidget(self.nav_container)
-        self.main_layout.addWidget(self.scroll)
-
-    def add_category(self, title):
-        lbl = QLabel(title)
-        lbl.setStyleSheet("color: #555; font-size: 10px; font-weight: bold; padding: 5px 15px; letter-spacing: 1px;")
-        self.nav_layout.addWidget(lbl)
-
-    def add_nav(self, label, view_name):
-        btn = NavButton(label)
-        self.nav_layout.addWidget(btn)
-        self.buttons[view_name] = btn
+        self.tool_buttons = {}
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -181,6 +147,15 @@ class MainWindow(QMainWindow):
         self.resize(1280, 850)
         self.setMinimumSize(1000, 700)
         
+        self.category_map = {
+            "CORE": [("DASHBOARD", "dashboard"), ("CLIENTS", "clients"), ("PROJECTS", "projects")],
+            "INTELLIGENCE": [("GRAPH EXPLORER", "graph_explorer"), ("OSINT HUB", "osint")],
+            "OFFENSIVE": [("NETWORK", "network"), ("WEB SCANS", "web"), ("CLOUD SCAN", "cloud"), ("RED TEAM", "red_team"), ("API FUZZER", "api_fuzzer"), ("CREDENTIALS", "credentials"), ("WIRELESS/BT", "wireless"), ("AI EXPLOIT", "ai_exploit")],
+            "RED ADVANCED": [("EDR EVASION", "evasion"), ("MALWARE GEN", "malware"), ("CONTAINER/K8S", "k8s"), ("SECRETS SCAN", "secrets"), ("OBFUSCATOR", "obfuscation"), ("C2 PERSISTENCE", "persistence")],
+            "DEFENSIVE": [("MONITORING", "monitoring"), ("BLUE DASH", "blue_dashboard"), ("BLUE TOOLS", "blue_team"), ("AUDIT LOGS", "audit"), ("COMPLIANCE", "compliance"), ("LOG ANALYZER", "log_analyzer")],
+            "SYSTEM": [("CONSOLE", "console"), ("REPORTING", "reporting"), ("SETTINGS", "settings"), ("MARKETPLACE", "marketplace"), ("LICENSING", "license"), ("ENGAGEMENTS", "engagements"), ("ASSET TRACKER", "assets"), ("REPORT GEN", "report_customizer"), ("ORCHESTRATOR", "orchestrator"), ("VULN REPLAY", "vuln_replay"), ("SANDBOX TESTER", "sandbox")]
+        }
+
         self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
         
         logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
@@ -190,29 +165,21 @@ class MainWindow(QMainWindow):
         from core.db import db_manager
         current_theme = db_manager.get_setting("theme", "Dark (Kali)")
 
-        # Main UI structure: SideBar + VerticalLayout(Content + StatusBar)
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        self.main_layout = QHBoxLayout(self.central_widget)
+        self.main_layout = QVBoxLayout(self.central_widget)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # Sidebar
-        self.sidebar = SideBar()
-        self.main_layout.addWidget(self.sidebar)
+        # Top Navigation
+        self.top_bar = TopBar()
+        self.main_layout.addWidget(self.top_bar)
 
-        # Right side content
-        self.content_container = QWidget()
-        self.content_layout = QVBoxLayout(self.content_container)
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(0)
-        self.main_layout.addWidget(self.content_container)
-
-        # Content Area (Stacked Widget)
+        # Content Area
         self.content_stack = QStackedWidget()
-        self.content_layout.addWidget(self.content_stack)
+        self.main_layout.addWidget(self.content_stack)
 
-        # Status Bar (moved inside content container at the bottom)
+        # Status Bar
         self.status_bar_frame = QFrame()
         self.status_bar_frame.setFixedHeight(30)
         self.status_bar_frame.setStyleSheet("background-color: #1a1a1a; border-top: 1px solid #333;")
@@ -222,19 +189,20 @@ class MainWindow(QMainWindow):
         self.status_msg = QLabel("READY")
         self.status_msg.setStyleSheet("color: #888; font-size: 10px;")
         status_layout.addWidget(self.status_msg)
-        
         status_layout.addStretch()
         
         self.cloud_indicator = QLabel("☁ OFFLINE")
         self.cloud_indicator.setStyleSheet("color: #ff3333; font-weight: bold; font-size: 10px;")
         status_layout.addWidget(self.cloud_indicator)
-        
-        self.content_layout.addWidget(self.status_bar_frame)
+        self.main_layout.addWidget(self.status_bar_frame)
         
         self.update_cloud_indicator()
         self.setup_views()
         self.connect_signals()
         self.apply_styles(current_theme)
+        
+        # Initial Category
+        self.switch_category("CORE")
 
     def setup_views(self):
         self.views = {
@@ -270,11 +238,14 @@ class MainWindow(QMainWindow):
             "obfuscation": ObfuscationView(),
             "persistence": PersistenceView(),
             "log_analyzer": LogAnalyzerView(),
-            "marketplace": PluginMarketplaceView()
+            "marketplace": PluginMarketplaceView(),
+            "graph_explorer": GraphExplorerView(),
+            "osint": OSINTView(),
+            "license": LicenseView()
         }
         self.stack_widgets = {}
         for name, view in self.views.items():
-            if name in ["dashboard", "monitoring", "settings", "reporting", "audit", "blue_team", "blue_dashboard", "credentials", "wireless", "evasion", "malware", "k8s", "secrets", "ai_exploit", "report_customizer", "engagements", "assets", "orchestrator", "vuln_replay", "sandbox", "obfuscation", "persistence", "log_analyzer", "marketplace"]:
+            if name in ["dashboard", "monitoring", "settings", "reporting", "audit", "blue_team", "blue_dashboard", "credentials", "wireless", "evasion", "malware", "k8s", "secrets", "ai_exploit", "report_customizer", "engagements", "assets", "orchestrator", "vuln_replay", "sandbox", "obfuscation", "persistence", "log_analyzer", "marketplace", "osint", "graph_explorer", "license"]:
                 scroll = QScrollArea()
                 scroll.setWidgetResizable(True)
                 scroll.setFrameShape(QFrame.NoFrame)
@@ -289,11 +260,67 @@ class MainWindow(QMainWindow):
         self.switch_view("dashboard")
 
     def connect_signals(self):
-        for name, btn in self.sidebar.buttons.items():
-            btn.clicked.connect(lambda checked, n=name: self.switch_view(n))
+        for name, btn in self.top_bar.cat_buttons.items():
+            btn.clicked.connect(lambda checked, n=name: self.switch_category(n))
+
+    def switch_category(self, cat_name):
+        # Update category buttons
+        for name, btn in self.top_bar.cat_buttons.items():
+            btn.setChecked(name == cat_name)
+        
+        # Clear tier 2
+        while self.top_bar.tier2_layout.count():
+            child = self.top_bar.tier2_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+        
+        self.top_bar.tool_buttons = {}
+        
+        # Add new tools for category
+        tools = self.category_map.get(cat_name, [])
+        pro_tools = ["ai_exploit", "malware", "k8s", "persistence", "orchestrator"]
+        
+        for label, view_name in tools:
+            is_locked = view_name in pro_tools and not license_manager.is_pro()
+            btn_label = f"{label} 🔒" if is_locked else label
+            
+            btn = NavButton(btn_label)
+            if is_locked:
+                btn.clicked.connect(lambda chk: self.switch_view("license"))
+                btn.setStyleSheet(btn.styleSheet() + " color: #555;")
+            else:
+                btn.clicked.connect(lambda checked, v=view_name: self.switch_view(v))
+                
+            self.top_bar.tier2_layout.addWidget(btn)
+            self.top_bar.tool_buttons[view_name] = btn
+            
+        self.top_bar.tier2_layout.addStretch()
+        
+        # Switch to first tool in category if not already in a tool of this category
+        if tools:
+            current_view_name = None
+            for name, widget in self.stack_widgets.items():
+                if self.content_stack.currentWidget() == widget:
+                    current_view_name = name
+                    break
+            
+            is_current_in_cat = any(t[1] == current_view_name for t in tools)
+            if not is_current_in_cat:
+                self.switch_view(tools[0][1])
+            else:
+                if current_view_name in self.top_bar.tool_buttons:
+                    self.top_bar.tool_buttons[current_view_name].setChecked(True)
 
     def switch_view(self, name):
-        for n, btn in self.sidebar.buttons.items():
+        # Update License Indicator in Header
+        if license_manager.is_pro():
+            self.top_bar.license_lbl.setText("PRO")
+            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #00ff00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+        else:
+            self.top_bar.license_lbl.setText("TRIAL")
+            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #ffaa00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+
+        for n, btn in self.top_bar.tool_buttons.items():
             btn.setChecked(n == name)
         
         self.content_stack.setCurrentWidget(self.stack_widgets[name])
@@ -306,8 +333,9 @@ class MainWindow(QMainWindow):
             self.views["clients"].refresh_table()
         elif name == "audit":
             self.views["audit"].refresh_logs()
-        elif name in ["network", "web", "cloud", "reporting", "blue_team", "red_team", "api_fuzzer", "compliance", "credentials", "wireless", "evasion", "malware", "k8s", "secrets", "ai_exploit", "report_customizer", "engagements", "assets", "orchestrator", "vuln_replay", "sandbox", "obfuscation", "persistence", "log_analyzer", "marketplace"]:
-            self.views[name].refresh_projects()
+        elif name in self.views:
+            if hasattr(self.views[name], "refresh_projects"):
+                self.views[name].refresh_projects()
 
     def update_cloud_indicator(self):
         from core.db import db_manager
@@ -322,10 +350,10 @@ class MainWindow(QMainWindow):
         is_light = theme_name == "Light (Professional)"
         bg = "#f4f4f4" if is_light else "#121212"
         fg = "#333333" if is_light else "#f0f0f0"
-        sidebar_bg = "#e0e0e0" if is_light else "#1e1e1e"
         border = "#cccccc" if is_light else "#333333"
         accent = "#0078d4" if is_light else "#00ccff"
         input_bg = "#ffffff" if is_light else "#2b2b2b"
+        header_bg = "#e0e0e0" if is_light else "#1a1a1a"
 
         self.setStyleSheet(f"""
             QMainWindow, QWidget {{
@@ -333,9 +361,9 @@ class MainWindow(QMainWindow):
                 color: {fg};
                 font-family: 'Inter', 'Segoe UI', Arial;
             }}
-            QFrame#SideBar {{
-                background-color: {sidebar_bg};
-                border-right: 1px solid {border};
+            QFrame#TopBar {{
+                background-color: {header_bg};
+                border-bottom: 1px solid {border};
             }}
             QLineEdit, QComboBox, QPlainTextEdit, QTableWidget {{
                 background-color: {input_bg};
@@ -347,7 +375,7 @@ class MainWindow(QMainWindow):
             QPushButton {{
                 border-radius: 4px;
                 padding: 8px;
-                background-color: {sidebar_bg};
+                background-color: {header_bg};
                 color: {fg};
             }}
             QProgressBar {{
@@ -360,29 +388,4 @@ class MainWindow(QMainWindow):
                 background-color: {accent};
             }}
         """)
-        
-        # Specific button styles for sidebar
-        for btn in self.sidebar.buttons.values():
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    border: none;
-                    color: {"#555" if is_light else "#aaa"};
-                    text-align: left;
-                    padding-left: 20px;
-                    font-size: 12px;
-                    border-left: 3px solid transparent;
-                    height: 35px;
-                }}
-                QPushButton:hover {{
-                    background-color: {"#d0d0d0" if is_light else "#2a2a2a"};
-                    color: {fg};
-                }}
-                QPushButton:checked {{
-                    color: {accent};
-                    font-weight: bold;
-                    border-left: 3px solid {accent};
-                    background-color: {"#d8d8d8" if is_light else "#151515"};
-                }}
-            """)
 

@@ -34,5 +34,47 @@ class EncryptionVault:
         decrypted = self.decrypt(encrypted_canary)
         return decrypted == "HACKURA_VALID_VAULT"
 
+class LicenseManager:
+    def __init__(self):
+        self.license_key = None
+        self._is_pro_cached = None
+
+    def get_machine_id(self):
+        # Professional fallback for machine identification
+        import uuid
+        return str(uuid.getnode())
+
+    def validate_key(self, key):
+        """Simulated professional key validation logic."""
+        if not key: return False
+        # Logic: Key must start with HACK- and end with machine-id hash
+        import hashlib
+        m_id = self.get_machine_id()
+        expected_suffix = hashlib.sha256(m_id.encode()).hexdigest()[:8].upper()
+        
+        if key.startswith("HACK-") and key.endswith(expected_suffix):
+            from core.db import db_manager
+            db_manager.set_setting("license_key", key)
+            self.license_key = key
+            self._is_pro_cached = True
+            return True
+        return False
+
+    def is_pro(self):
+        if self._is_pro_cached is not None:
+            return self._is_pro_cached
+            
+        from core.db import db_manager
+        key = db_manager.get_setting("license_key")
+        if not key:
+            self._is_pro_cached = False
+            return False
+            
+        # Re-validate
+        self._is_pro_cached = self.validate_key(key)
+        return self._is_pro_cached
+
+license_manager = LicenseManager()
+
 # Global instance initialized after unlock
 vault = None

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+# Create symlink for easier access
+ln -sf /opt/hackura-suite/main.py /usr/local/bin/hackura-suite
+chmod +x /usr/local/bin/hackura-suite
+
+echo "Hackura Suite installed successfully. Use 'hackura-suite' to launch."

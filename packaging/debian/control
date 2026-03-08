@@ -1,0 +1,10 @@
+Package: hackura-suite
+Version: 1.5.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Hackura Team <contact@hackura.io>
+Depends: python3, python3-pyside6, python3-requests
+Description: Hackura Pentest Suite - Pro-Grade Security Assessments
+ A comprehensive suite of advanced security tools for network exploration,
+ web scanning, cloud auditing, and intelligence gathering.
