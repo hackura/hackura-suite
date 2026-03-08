@@ -3,7 +3,7 @@ import shutil
 import subprocess
 
 def build_deb():
-    pkg_name = "hackura-suite_1.5.0_all"
+    pkg_name = "hackura-suite_2.0.0_all"
     build_dir = os.path.join("build", "debian", pkg_name)
     
     if os.path.exists(build_dir):
