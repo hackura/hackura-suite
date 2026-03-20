@@ -36,6 +36,10 @@ class PersistenceView(QWidget):
         self.start_c2_btn.clicked.connect(self.toggle_c2)
         table_layout.addWidget(self.start_c2_btn)
         
+        self.dash_lbl = QLabel("Dashboard: http://127.0.0.2:4444 (Open in Browser)")
+        self.dash_lbl.setStyleSheet("color: #888; font-size: 10px;")
+        table_layout.addWidget(self.dash_lbl)
+        
         main_layout.addWidget(table_frame, 3)
         
         # Right: Interaction Console

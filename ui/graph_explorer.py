@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGraphicsView, QGraphicsScene, 
     QGraphicsItem, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsTextItem,
-    QPushButton, QMenu, QMessageBox
+    QPushButton, QMenu, QMessageBox, QLineEdit
 )
 from PySide6.QtCore import Qt, QPointF, QRectF
 from PySide6.QtGui import QPen, QBrush, QColor, QPainter
@@ -63,9 +63,20 @@ class GraphExplorerView(QWidget):
         layout = QVBoxLayout(self)
         
         top_bar = QHBoxLayout()
+        
+        self.domain_input = QLineEdit()
+        self.domain_input.setPlaceholderText("Enter target domain (e.g. hackura.io)")
+        self.domain_input.setFixedWidth(300)
+        self.domain_input.setFixedHeight(35)
+        self.domain_input.setStyleSheet("background: #252525; border: 1px solid #333; padding-left: 10px; color: #00ccff;")
+        top_bar.addWidget(self.domain_input)
+        
         add_btn = QPushButton("Add Target Domain")
+        add_btn.setFixedHeight(35)
+        add_btn.setStyleSheet("background-color: #333; color: #00ccff; padding: 0 15px;")
         add_btn.clicked.connect(self.add_initial_target)
         top_bar.addWidget(add_btn)
+        
         top_bar.addStretch()
         layout.addLayout(top_bar)
         
@@ -80,9 +91,14 @@ class GraphExplorerView(QWidget):
         self.view.customContextMenuRequested.connect(self.show_context_menu)
 
     def add_initial_target(self):
-        domain = "example.com" # Simplification for now
+        domain = self.domain_input.text().strip()
+        if not domain:
+            QMessageBox.warning(self, "Error", "Please enter a valid target domain.")
+            return
+            
         e = self.engine.add_entity(domain, "Domain")
         self.create_node_item(e, QPointF(0, 0))
+        self.domain_input.clear()
 
     def create_node_item(self, entity, pos):
         item = NodeItem(entity)

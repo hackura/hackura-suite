@@ -74,7 +74,7 @@ class NetworkView(QWidget):
 
         self.clear_btn = QPushButton("CLEAR")
         self.clear_btn.setFixedHeight(35)
-        self.clear_btn.clicked.connect(lambda: self.log_area.clear())
+        self.clear_btn.clicked.connect(self.clear_all)
         
         input_layout.addWidget(self.project_combo)
         input_layout.addWidget(self.tool_combo)
@@ -94,6 +94,11 @@ class NetworkView(QWidget):
         self.log_area.setReadOnly(True)
         self.log_area.setStyleSheet("background-color: #000; color: #00ff00; font-family: monospace; border: 1px solid #3d3d3d; margin-top: 10px;")
         self.layout.addWidget(self.log_area)
+
+    def clear_all(self):
+        self.target_input.clear()
+        self.log_area.clear()
+        self.progress_bar.setVisible(False)
 
     def refresh_projects(self):
         self.project_combo.clear()
@@ -151,6 +156,7 @@ class NetworkView(QWidget):
             if self.current_tool == "Nmap":
                 for host in result.get("hosts", []):
                     self.log_area.appendPlainText(f"Host: {host['address']} ({host['status']})")
+                    db_manager.upsert_asset(self.current_project_id, host['address'], name=None, os_type=None)
                     for port in host['ports']:
                         self.log_area.appendPlainText(f"  Port: {port['id']}/{port['protocol']} - {port['state']}")
                         if port['state'] == 'open':

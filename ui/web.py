@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThread, Signal
 from core.web_fuzzer import WebFuzzer
 from wrappers.web_tools import GobusterWrapper, DirsearchWrapper
+from wrappers.nuclei import NucleiWrapper
 from core.db import db_manager
 import json
 
@@ -32,6 +33,8 @@ class FuzzWorker(QThread):
         else:
             if self.tool_type == "Gobuster":
                 tool = GobusterWrapper()
+            elif self.tool_type == "Nuclei":
+                tool = NucleiWrapper()
             else:
                 tool = DirsearchWrapper()
             
@@ -59,7 +62,7 @@ class WebView(QWidget):
         self.refresh_projects()
 
         self.tool_combo = QComboBox()
-        self.tool_combo.addItems(["Built-in", "Gobuster", "Dirsearch"])
+        self.tool_combo.addItems(["Built-in", "Gobuster", "Dirsearch", "Nuclei"])
         self.tool_combo.setFixedHeight(35)
         self.tool_combo.setStyleSheet("background-color: #2b2b2b; border: 1px solid #3d3d3d;")
 

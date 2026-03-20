@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, 
-    QStackedWidget, QLabel, QFrame, QScrollArea
+    QStackedWidget, QLabel, QFrame, QScrollArea, QMessageBox
 )
 from PySide6.QtCore import Qt
 from ui.network import NetworkView
@@ -9,7 +9,6 @@ from ui.cloud import CloudView
 from ui.exfiltrate import RedTeamView
 from ui.api_view import APIFuzzerView
 from ui.compliance_view import ComplianceView
-from ui.reporting import ReportingView
 from ui.settings import SettingsView
 from ui.dashboard import DashboardView
 from ui.console import ConsoleView
@@ -18,21 +17,16 @@ from ui.clients import ClientView
 from ui.audit import SecurityAuditView
 from ui.monitoring import MonitoringView
 from ui.blue_team import BlueTeamView
-from ui.blue_dashboard import BlueDashboardView
 from ui.credential_view import CredentialView
 from ui.cloud_scanner_view import CloudScannerView
 from ui.wireless_view import WirelessView
+from ui.bluetooth_view import BluetoothView
 from ui.evasion_view import EvasionView
 from ui.malware_view import MalwareView
 from ui.k8s_view import K8sView
 from ui.secrets_view import SecretsView
 from ui.ai_exploit_view import AIExploitView
 from ui.report_customizer import ReportCustomizerView
-from ui.engagement_tracker import EngagementTrackerView
-from ui.asset_tracker import AssetTrackerView
-from ui.orchestrator_view import OrchestratorView
-from ui.vuln_replay import VulnReplayView
-from ui.sandbox_view import SandboxView
 from ui.obfuscation_view import ObfuscationView
 from ui.persistence_view import PersistenceView
 from ui.log_analyzer_view import LogAnalyzerView
@@ -40,7 +34,10 @@ from ui.marketplace_view import PluginMarketplaceView
 from ui.graph_explorer import GraphExplorerView
 from ui.osint_view import OSINTView
 from ui.license_view import LicenseView
+from ui.intelligence_expansion import BreachSearchView, DarkWebScanView
 from core.security import license_manager
+from core.db import db_manager
+from core.sync_engine import sync_engine
 from PySide6.QtGui import QIcon, QColor
 import os
 
@@ -140,6 +137,12 @@ class TopBar(QFrame):
 
         self.tool_buttons = {}
 
+        # Cloud Sync Action
+        self.sync_btn = QPushButton("🔄 SYNC")
+        self.sync_btn.setFixedSize(60, 25)
+        self.sync_btn.setStyleSheet("background-color: #333; color: #00ccff; font-weight: bold; font-size: 9px; border-radius: 2px;")
+        tier1_layout.addWidget(self.sync_btn)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -149,11 +152,11 @@ class MainWindow(QMainWindow):
         
         self.category_map = {
             "CORE": [("DASHBOARD", "dashboard"), ("CLIENTS", "clients"), ("PROJECTS", "projects")],
-            "INTELLIGENCE": [("GRAPH EXPLORER", "graph_explorer"), ("OSINT HUB", "osint")],
-            "OFFENSIVE": [("NETWORK", "network"), ("WEB SCANS", "web"), ("CLOUD SCAN", "cloud"), ("RED TEAM", "red_team"), ("API FUZZER", "api_fuzzer"), ("CREDENTIALS", "credentials"), ("WIRELESS/BT", "wireless"), ("AI EXPLOIT", "ai_exploit")],
+            "INTELLIGENCE": [("GRAPH EXPLORER", "graph_explorer"), ("OSINT HUB", "osint"), ("BREACH SEARCH", "breach_search"), ("DARK WEB SCAN", "dark_web")],
+            "OFFENSIVE": [("NETWORK", "network"), ("WEB SCANS", "web"), ("CLOUD SCAN", "cloud"), ("RED TEAM", "red_team"), ("API FUZZER", "api_fuzzer"), ("CREDENTIALS", "credentials"), ("WIFI AUDIT", "wireless"), ("BLUETOOTH", "bluetooth"), ("AI EXPLOIT", "ai_exploit")],
             "RED ADVANCED": [("EDR EVASION", "evasion"), ("MALWARE GEN", "malware"), ("CONTAINER/K8S", "k8s"), ("SECRETS SCAN", "secrets"), ("OBFUSCATOR", "obfuscation"), ("C2 PERSISTENCE", "persistence")],
-            "DEFENSIVE": [("MONITORING", "monitoring"), ("BLUE DASH", "blue_dashboard"), ("BLUE TOOLS", "blue_team"), ("AUDIT LOGS", "audit"), ("COMPLIANCE", "compliance"), ("LOG ANALYZER", "log_analyzer")],
-            "SYSTEM": [("CONSOLE", "console"), ("REPORTING", "reporting"), ("SETTINGS", "settings"), ("MARKETPLACE", "marketplace"), ("LICENSING", "license"), ("ENGAGEMENTS", "engagements"), ("ASSET TRACKER", "assets"), ("REPORT GEN", "report_customizer"), ("ORCHESTRATOR", "orchestrator"), ("VULN REPLAY", "vuln_replay"), ("SANDBOX TESTER", "sandbox")]
+            "DEFENSIVE": [("MONITORING", "monitoring"), ("BLUE TOOLS", "blue_team"), ("AUDIT LOGS", "audit"), ("COMPLIANCE", "compliance"), ("LOG ANALYZER", "log_analyzer")],
+            "SYSTEM": [("CONSOLE", "console"), ("REPORTING", "report_customizer"), ("SETTINGS", "settings"), ("MARKETPLACE", "marketplace"), ("LICENSING", "license")]
         }
 
         self.setWindowFlags(Qt.Window | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint)
@@ -198,13 +201,38 @@ class MainWindow(QMainWindow):
         
         self.update_cloud_indicator()
         self.setup_views()
+        self.top_bar.sync_btn.clicked.connect(self.force_sync)
         self.connect_signals()
+        
+        # Listen for license changes
+        license_manager.on_change(self.on_license_change)
+        
         self.apply_styles(current_theme)
         
         # Initial Category
         self.switch_category("CORE")
 
+    def force_sync(self):
+        from core.db import db_manager
+        if not db_manager.use_cloud:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Local Mode", "Cloud Sync is only available in PRO Cloud mode. Please configure Supabase in Settings.")
+            return
+
+        self.status_msg.setText("SYNCING TO CLOUD...")
+        self.top_bar.sync_btn.setEnabled(False)
+        sync_engine.finished.connect(self.on_sync_finished)
+        sync_engine.start()
+
+    def on_sync_finished(self, success):
+        self.top_bar.sync_btn.setEnabled(True)
+        if success:
+            self.status_msg.setText("CLOUD SYNC SUCCESSFUL")
+        else:
+            self.status_msg.setText("CLOUD SYNC FAILED")
+
     def setup_views(self):
+
         self.views = {
             "dashboard": DashboardView(),
             "clients": ClientView(),
@@ -217,8 +245,6 @@ class MainWindow(QMainWindow):
             "api_fuzzer": APIFuzzerView(),
             "compliance": ComplianceView(),
             "console": ConsoleView(),
-            "reporting": ReportingView(),
-            "blue_dashboard": BlueDashboardView(),
             "blue_team": BlueTeamView(),
             "audit": SecurityAuditView(),
             "settings": SettingsView(),
@@ -228,24 +254,22 @@ class MainWindow(QMainWindow):
             "malware": MalwareView(),
             "k8s": K8sView(),
             "secrets": SecretsView(),
+            "bluetooth": BluetoothView(),
             "ai_exploit": AIExploitView(),
             "report_customizer": ReportCustomizerView(),
-            "engagements": EngagementTrackerView(),
-            "assets": AssetTrackerView(),
-            "orchestrator": OrchestratorView(),
-            "vuln_replay": VulnReplayView(),
-            "sandbox": SandboxView(),
             "obfuscation": ObfuscationView(),
             "persistence": PersistenceView(),
             "log_analyzer": LogAnalyzerView(),
             "marketplace": PluginMarketplaceView(),
             "graph_explorer": GraphExplorerView(),
             "osint": OSINTView(),
-            "license": LicenseView()
+            "license": LicenseView(),
+            "breach_search": BreachSearchView(),
+            "dark_web": DarkWebScanView()
         }
         self.stack_widgets = {}
         for name, view in self.views.items():
-            if name in ["dashboard", "monitoring", "settings", "reporting", "audit", "blue_team", "blue_dashboard", "credentials", "wireless", "evasion", "malware", "k8s", "secrets", "ai_exploit", "report_customizer", "engagements", "assets", "orchestrator", "vuln_replay", "sandbox", "obfuscation", "persistence", "log_analyzer", "marketplace", "osint", "graph_explorer", "license"]:
+            if name in ["dashboard", "monitoring", "settings", "audit", "blue_team", "credentials", "wireless", "bluetooth", "evasion", "malware", "k8s", "secrets", "ai_exploit", "report_customizer", "obfuscation", "persistence", "log_analyzer", "marketplace", "osint", "graph_explorer", "license", "breach_search", "dark_web"]:
                 scroll = QScrollArea()
                 scroll.setWidgetResizable(True)
                 scroll.setFrameShape(QFrame.NoFrame)
@@ -278,7 +302,10 @@ class MainWindow(QMainWindow):
         
         # Add new tools for category
         tools = self.category_map.get(cat_name, [])
-        pro_tools = ["ai_exploit", "malware", "k8s", "persistence", "orchestrator"]
+        pro_tools = [
+            "ai_exploit", "malware", "k8s", "persistence", "orchestrator",
+            "vuln_replay", "marketplace"
+        ]
         
         for label, view_name in tools:
             is_locked = view_name in pro_tools and not license_manager.is_pro()
@@ -311,14 +338,10 @@ class MainWindow(QMainWindow):
                 if current_view_name in self.top_bar.tool_buttons:
                     self.top_bar.tool_buttons[current_view_name].setChecked(True)
 
+
     def switch_view(self, name):
         # Update License Indicator in Header
-        if license_manager.is_pro():
-            self.top_bar.license_lbl.setText("PRO")
-            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #00ff00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
-        else:
-            self.top_bar.license_lbl.setText("TRIAL")
-            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #ffaa00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+        self.on_license_change(license_manager.is_pro())
 
         for n, btn in self.top_bar.tool_buttons.items():
             btn.setChecked(n == name)
@@ -338,13 +361,31 @@ class MainWindow(QMainWindow):
                 self.views[name].refresh_projects()
 
     def update_cloud_indicator(self):
-        from core.db import db_manager
         if db_manager.use_cloud:
             self.cloud_indicator.setText("☁ CLOUD SYNC ACTIVE")
             self.cloud_indicator.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 10px;")
         else:
             self.cloud_indicator.setText("☁ LOCAL MODE")
             self.cloud_indicator.setStyleSheet("color: #ffaa00; font-weight: bold; font-size: 10px;")
+
+    def on_license_change(self, is_pro):
+        # Update header immediately
+        if is_pro:
+            self.top_bar.license_lbl.setText("PRO")
+            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #00ff00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+        else:
+            self.top_bar.license_lbl.setText("TRIAL")
+            self.top_bar.license_lbl.setStyleSheet("font-size: 9px; background-color: #ffaa00; color: black; padding: 2px 6px; border-radius: 3px; font-weight: bold; margin-right: 15px;")
+
+        # Refresh current view to update icons/locking
+        current_cat = None
+        for cat, btn in self.top_bar.cat_buttons.items():
+            if btn.isChecked():
+                current_cat = cat
+                break
+        
+        if current_cat:
+            self.switch_category(current_cat)
 
     def apply_styles(self, theme_name="Dark (Kali)"):
         is_light = theme_name == "Light (Professional)"
@@ -388,4 +429,3 @@ class MainWindow(QMainWindow):
                 background-color: {accent};
             }}
         """)
-

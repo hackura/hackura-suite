@@ -107,7 +107,6 @@ class DatabaseManager:
             )
         ''')
 
-        # Detailed Findings
         conn.execute('''
             CREATE TABLE IF NOT EXISTS findings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,7 +118,33 @@ class DatabaseManager:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (scan_id) REFERENCES scans (id)
             )
-        ''', )
+        ''')
+        
+        # Assets Tracking
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS assets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER,
+                name TEXT,
+                ip_address TEXT,
+                os_type TEXT,
+                category TEXT,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id)
+            )
+        ''')
+        conn.commit()
+
+    def upsert_asset(self, project_id, ip, name=None, os_type=None, category="Target"):
+        conn = self.get_connection()
+        # Check if exists
+        res = conn.execute("SELECT id FROM assets WHERE project_id = ? AND ip_address = ?", (project_id, ip)).fetchone()
+        if res:
+            if name or os_type:
+                conn.execute("UPDATE assets SET name = COALESCE(?, name), os_type = COALESCE(?, os_type) WHERE id = ?", (name, os_type, res['id']))
+        else:
+            conn.execute("INSERT INTO assets (project_id, ip_address, name, os_type, category) VALUES (?, ?, ?, ?, ?)", 
+                         (project_id, ip, name or "Unknown Host", os_type or "Unknown OS", category))
         conn.commit()
 
     def set_setting(self, key, value, is_secret=False):

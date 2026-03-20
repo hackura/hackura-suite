@@ -28,7 +28,7 @@ class StatCard(QFrame):
         layout.addWidget(self.val_lbl)
         layout.addWidget(self.title_lbl)
         
-        theme = db_manager.get_setting("theme", "Dark (Kali)")
+        theme = db_manager.get_setting("theme", "Dark")
         self.apply_styles(theme)
 
     def apply_styles(self, theme_name):
@@ -65,7 +65,7 @@ class DashboardView(QWidget):
         self.project_stat = StatCard("Active Projects", "0")
         self.scan_stat = StatCard("Total Scans", "0")
         self.finding_stat = StatCard("Critical Findings", "0", "#ff3333")
-        self.health_stat = StatCard("Security Health", "94%", "#00ff00")
+        self.health_stat = StatCard("Security Health", "Calculating...", "#00ff00")
         
         stats_layout.addWidget(self.project_stat)
         stats_layout.addWidget(self.scan_stat)
@@ -248,9 +248,15 @@ class DashboardView(QWidget):
             scan_count = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
             critical_findings = conn.execute("SELECT COUNT(*) FROM findings WHERE severity = 'Critical'").fetchone()[0]
             
-            self.project_stat.layout().itemAt(0).widget().setText(str(proj_count))
-            self.scan_stat.layout().itemAt(0).widget().setText(str(scan_count))
-            self.finding_stat.layout().itemAt(0).widget().setText(str(critical_findings))
+            self.project_stat.val_lbl.setText(str(proj_count))
+            self.scan_stat.val_lbl.setText(str(scan_count))
+            self.finding_stat.val_lbl.setText(str(critical_findings))
+            
+            # Health Logic: Start at 100%, -5% per critical finding (min 0%)
+            health = max(0, 100 - (critical_findings * 5))
+            self.health_stat.val_lbl.setText(f"{health}%")
+            if health < 80: self.health_stat.val_lbl.setStyleSheet(self.health_stat.val_lbl.styleSheet() + " color: #ff3333;")
+            elif health < 90: self.health_stat.val_lbl.setStyleSheet(self.health_stat.val_lbl.styleSheet() + " color: #ffaa00;")
             
             # Recent Activity
             recent_scans = conn.execute("SELECT type, target, status, created_at FROM scans ORDER BY created_at DESC LIMIT 5").fetchall()

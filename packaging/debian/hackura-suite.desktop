@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Hackura Suite
+Comment=Elite Pentesting & Intelligence Suite
+Exec=hackura-suite
+Icon=hackura-suite
+Type=Application
+Categories=Development;Security;
+Terminal=false
+StartupNotify=true

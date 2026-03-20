@@ -172,6 +172,7 @@ class SettingsView(QWidget):
         db_manager.set_setting("otx_api_key", self.otx_key.text(), is_secret=True)
         db_manager.set_setting("honeydb_api_key", self.honeydb_key.text(), is_secret=True)
         db_manager.set_setting("intel_api_key", self.intel_key.text(), is_secret=True)
+        db_manager.set_setting("intel_api_key", self.intel_key.text(), is_secret=True)
         db_manager.set_setting("intel_provider", self.intel_provider.currentText())
         
         db_manager.log_action("API Vault Updated", "Shodan/OTX/HoneyDB/Intel keys refreshed")
